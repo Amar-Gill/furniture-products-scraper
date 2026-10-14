@@ -1,105 +1,30 @@
-import { PlaywrightCrawler, RobotsTxtFile } from "crawlee";
-import { writeFile } from "node:fs/promises";
+import { RobotsTxtFile } from "crawlee";
+import { rename, writeFile } from "node:fs/promises";
+import { BASE, collectProductUrls, loadSitemapUrls } from "./sitemap.js";
 
-const BASE = "https://www.structube.com";
-
-const fallbackSeeds = [
-  `${BASE}/en_ca/furniture/living-room`,
-  `${BASE}/en_ca/furniture/dining-room`,
-  `${BASE}/en_ca/furniture/bedroom`,
-  `${BASE}/en_ca/furniture/office`,
-];
-
-function normalizeCategory(rawUrl: string): string | null {
-  const url = new URL(rawUrl);
-
-  if (url.hostname !== "www.structube.com") return null;
-  if (!url.pathname.startsWith("/en_ca/furniture/")) {
-    return null;
-  }
-
-  // Avoid filter, sorting and pagination URLs.
-  if (url.search) return null;
-
-  return url.origin + url.pathname.replace(/\/$/, "");
-}
-
-// Step 1: Get candidate categories from the sitemap.
-const robots = await RobotsTxtFile.find(BASE);
-const sitemapCategories = new Set<string>();
-
-try {
-  const urls = await robots.parseUrlsFromSitemaps();
-
-  for (const url of urls) {
-    const category = normalizeCategory(url);
-    if (category && robots.isAllowed(category)) {
-      sitemapCategories.add(category);
-    }
-  }
-} catch (error) {
-  console.warn("Sitemap unavailable:", error);
-}
-
-const discovered = new Set<string>();
-
-// Step 2: Discover additional categories by browsing.
-const crawler = new PlaywrightCrawler({
-  maxConcurrency: 1,
-  maxRequestsPerMinute: 12,
-  maxRequestsPerCrawl: 300,
-  respectRobotsTxtFile: true,
-
-  async requestHandler({ request, page, enqueueLinks, log }) {
-    const categoryUrl = normalizeCategory(request.url);
-    if (!categoryUrl) return;
-
-    // Wait for client-rendered navigation links.
-    await page
-      .locator('a[href*="/en_ca/furniture/"]')
-      .first()
-      .waitFor({ timeout: 10000 })
-      .catch(() => {});
-
-    const title = await page
-      .locator("h1")
-      .first()
-      .textContent({ timeout: 5000 })
-      .catch(() => null);
-
-    discovered.add(categoryUrl);
-
-    log.info(`Category: ${title?.trim() ?? categoryUrl}`);
-
-    // Automatically queue linked subcategories.
-    await enqueueLinks({
-      selector: 'a[href*="/en_ca/furniture/"]',
-      strategy: "same-hostname",
-
-      transformRequestFunction(req) {
-        const normalized = normalizeCategory(req.url);
-        if (!normalized) return false;
-
-        req.url = normalized;
-        req.uniqueKey = normalized;
-
-        return req;
-      },
-    });
-  },
-});
-
-const seeds = [...new Set([...sitemapCategories, ...fallbackSeeds])].filter(
-  (url) => robots.isAllowed(url),
+// Discovery uses HTTP only: no browser or product-page requests are needed.
+const robots = await RobotsTxtFile.find(BASE, undefined, { timeoutMillis: 30_000 });
+const advertisedSitemaps = robots.getSitemaps();
+// Keep the existing English-Canada scope; still follow language-neutral indexes.
+const sitemaps = advertisedSitemaps.filter(
+  (url) => !new URL(url).pathname.includes("_fr_ca"),
 );
+if (sitemaps.length === 0) {
+  throw new Error("robots.txt did not advertise an applicable sitemap.");
+}
 
-await crawler.run(seeds);
+const urls = await loadSitemapUrls(sitemaps);
+const products = collectProductUrls(urls, (url) => robots.isAllowed(url));
+if (products.length === 0) {
+  throw new Error("No product URLs found; existing products.json was left intact.");
+}
 
-// Step 3: Persist the discovered category URLs.
-const allCategories = [
-  ...new Set([...sitemapCategories, ...discovered]),
-].sort();
+// Replace the previous result only after the entire discovery succeeds.
+await writeFile("products.json.tmp", `${JSON.stringify(products, null, 2)}\n`);
+await rename("products.json.tmp", "products.json");
 
-await writeFile("categories.json", JSON.stringify(allCategories, null, 2));
-
-console.log(`Found ${allCategories.length} categories`);
+const pages = new Set(products.map((url) => new URL(url).pathname));
+console.log(
+  `Saved ${products.length} product URLs (${pages.size} distinct page paths) ` +
+    `from ${urls.length} sitemap URLs to products.json. Browser navigations: 0.`,
+);
