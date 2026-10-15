@@ -5,4 +5,4 @@ dist
 node_modules
 storage
 *.tsbuildinfo
-products.json.tmp
+*.json.tmp
