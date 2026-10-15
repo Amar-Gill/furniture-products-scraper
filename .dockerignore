@@ -7,5 +7,8 @@ storage
 # installed files
 node_modules
 
+# chat app, not part of the scraper image
+chat
+
 # local settings
 .env

@@ -60,3 +60,13 @@ The crawl is deliberately polite: 2 pages at a time and at most 20 per minute, s
 The crawler respects robots.txt, which disallows Structube's `/graphql` API, so it never calls the API itself and reads the rendered page. The one exception is the review summary: it shows "no ratings yet" until the page's own reviews request completes, so the crawler waits for that response and keeps only the average and count (review texts and reviewer details are discarded). Images, fonts, analytics, ads and third-party widgets are blocked, and the storefront's persisted API cache is cleared before each page so every page loads fresh data.
 
 Implementation references checked with Context7: [saving data](https://crawlee.dev/js/docs/introduction/saving-data), [scaling crawlers](https://crawlee.dev/js/docs/guides/scaling-crawlers), [failed request handling](https://crawlee.dev/js/docs/examples/http-crawler) and [navigation hooks](https://crawlee.dev/js/docs/upgrading/upgrading-to-v1). Context7 had no entries for `respectRobotsTxtFile`, `blockRequests` or `parseWithCheerio`, so those were checked against the installed Crawlee 3.18 type definitions.
+
+## Chat with the data
+
+[`chat/`](chat/README.md) is a React app that answers questions about `product-details.json` using the Vercel AI SDK and OpenAI. Put `OPENAI_API_KEY` in `.env`, then:
+
+```sh
+cd chat
+npm install
+npm run dev
+```
