@@ -1,3 +1,5 @@
+// Keep first: loads .env before any other module reads process.env.
+import "./env.js";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { Dataset, PlaywrightCrawler, playwrightUtils } from "crawlee";
 import type { Page } from "playwright";

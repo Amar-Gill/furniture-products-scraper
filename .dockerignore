@@ -6,3 +6,6 @@ storage
 
 # installed files
 node_modules
+
+# local settings
+.env

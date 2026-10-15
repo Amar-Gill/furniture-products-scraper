@@ -6,3 +6,4 @@ node_modules
 storage
 *.tsbuildinfo
 *.json.tmp
+.env

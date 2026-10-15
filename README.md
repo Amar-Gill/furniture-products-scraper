@@ -55,7 +55,7 @@ Other records contain `url`, `status`, `reason` and `scrapedAt`:
 - `failed`: the page kept failing after 3 retries; `reason` holds the last error.
 - `skipped`: disallowed by robots.txt.
 
-The crawl is deliberately polite: 2 pages at a time and at most 20 per minute, so the full list takes about 2.5 hours. Tune it with `MAX_CONCURRENCY` and `MAX_REQUESTS_PER_MINUTE`. `PRODUCTS_FILE` and `OUTPUT_FILE` change the input and output paths. Press Ctrl+C to pause and resume with `CRAWLEE_PURGE_ON_START=0 npm run scrape:details`; `product-details.json` is only replaced when a crawl completes.
+The crawl is deliberately polite: 2 pages at a time and at most 20 per minute, so the full list takes about 2.5 hours. Tune it with `MAX_CONCURRENCY` and `MAX_REQUESTS_PER_MINUTE`. `PRODUCTS_FILE` and `OUTPUT_FILE` change the input and output paths. These settings (and `LIMIT`) can also go in a `.env` file (see `.env.example`); variables set in the shell take precedence. Press Ctrl+C to pause and resume with `CRAWLEE_PURGE_ON_START=0 npm run scrape:details`. Keep that variable on the command line: set in `.env`, it would make every run resume. `product-details.json` is only replaced when a crawl completes.
 
 The crawler respects robots.txt, which disallows Structube's `/graphql` API, so it never calls the API itself and reads the rendered page. The one exception is the review summary: it shows "no ratings yet" until the page's own reviews request completes, so the crawler waits for that response and keeps only the average and count (review texts and reviewer details are discarded). Images, fonts, analytics, ads and third-party widgets are blocked, and the storefront's persisted API cache is cleared before each page so every page loads fresh data.
 
